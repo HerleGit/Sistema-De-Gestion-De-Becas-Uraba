@@ -1,11 +1,3 @@
--- =====================================================================================
--- CORPORACIÓN UNIVERSITARIA REMINGTON - FACULTAD DE INGENIERÍAS
--- Asignatura: Lenguaje de Programación 3 | Profesora: Marta Lucía Jiménez Torres
--- Proyecto N.° 8: Software de Gestión de Becas y Apoyo Estudiantil Universitario Regional
--- Estudiante: Herledinson Alberto Robledo Suárez
--- Script DDL + DML para MySQL 8.0+ (Mínimo 5 tablas con PK y FK -> 7 tablas creadas)
--- =====================================================================================
-
 DROP DATABASE IF EXISTS becas_uraba_db;
 CREATE DATABASE becas_uraba_db
   CHARACTER SET utf8mb4
