@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC
+        "-//Hibernate/Hibernate Configuration DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+<hibernate-configuration>
+    <session-factory>
+        <!-- 1. Propiedades de Conexión JDBC a MySQL (XAMPP Local port 3306) -->
+        <property name="hibernate.connection.driver_class">com.mysql.cj.jdbc.Driver</property>
+        <property name="hibernate.connection.url">jdbc:mysql://localhost:3306/becas_uraba_db?useSSL=false&amp;serverTimezone=America/Bogota&amp;allowPublicKeyRetrieval=true</property>
+        <property name="hibernate.connection.username">root</property>
+        <property name="hibernate.connection.password"></property>
+
+        <!-- 2. Pool de conexiones y Dialecto MySQL 8 -->
+        <property name="hibernate.connection.pool_size">10</property>
+        <property name="hibernate.dialect">org.hibernate.dialect.MySQLDialect</property>
+
+        <!-- 3. Estrategia de validación/actualización de esquema y logs SQL en consola -->
+        <property name="hibernate.hbm2ddl.auto">update</property>
+        <property name="hibernate.show_sql">true</property>
+        <property name="hibernate.format_sql">true</property>
+
+        <!-- 4. Mapeo ORM de las 7 Clases de Entidad del paquete 'modelo' -->
+        <mapping class="co.edu.uniremington.becas.modelo.Institucion"/>
+        <mapping class="co.edu.uniremington.becas.modelo.Usuario"/>
+        <mapping class="co.edu.uniremington.becas.modelo.Estudiante"/>
+        <mapping class="co.edu.uniremington.becas.modelo.SolicitudBeca"/>
+        <mapping class="co.edu.uniremington.becas.modelo.TipoSubsidioSolicitud"/>
+        <mapping class="co.edu.uniremington.becas.modelo.DocumentoAdjunto"/>
+        <mapping class="co.edu.uniremington.becas.modelo.RegistroAuditoria"/>
+    </session-factory>
+</hibernate-configuration>

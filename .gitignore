@@ -1,0 +1,29 @@
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+.vite-temp/
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+.idea/
+.vscode/
+*.iml
+
+# Documentos y entregables academicos (no subir al repositorio)
+Entregables_Word/
+docs/
+src/imports/
+public/marco_agil_parcial1.html
+.figma/
+*.docx
+*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+
+

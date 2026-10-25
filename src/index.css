@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+@theme inline {
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Outfit', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-background: #F5F2EC;
+  --color-foreground: #1A2928;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #1A2928;
+  --color-primary: #165C58;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #E8EDE8;
+  --color-secondary-foreground: #2D4A48;
+  --color-muted: #EAE7E0;
+  --color-muted-foreground: #6B7A79;
+  --color-accent: #C97B1A;
+  --color-accent-foreground: #FFFFFF;
+  --color-border: #D6D1C8;
+  --color-ring: #165C58;
+  --color-success: #1E7A4A;
+  --color-warning: #B85C00;
+  --color-danger: #B83232;
+  --radius: 6px;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background-color: var(--color-border); border-radius: 4px; }
