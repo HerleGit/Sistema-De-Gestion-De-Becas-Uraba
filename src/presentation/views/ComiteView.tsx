@@ -16,21 +16,21 @@ const ETAPAS_COMITE: EtapaComite[] = [
 ];
 
 export function ComiteView({
-  modo,
   usuario,
   solicitudes,
   parametros,
   onSelectSolicitud,
 }: {
-  modo: "bandeja" | "actas";
   usuario: UsuarioSesion;
   solicitudes: SolicitudBeca[];
   parametros: ParametrosSistema;
   onSelectSolicitud: (s: SolicitudBeca) => void;
 }) {
+  const tieneComiteFijo =
+    Boolean(usuario.comiteAsignado) && usuario.comiteAsignado !== "Todos";
   const [etapaFiltro, setEtapaFiltro] = useState<EtapaComite | "Todas">(
-    usuario.comiteAsignado && usuario.comiteAsignado !== "Todos"
-      ? usuario.comiteAsignado
+    tieneComiteFijo
+      ? (usuario.comiteAsignado as EtapaComite)
       : "Todas"
   );
   const [busqueda, setBusqueda] = useState("");
@@ -40,14 +40,7 @@ export function ComiteView({
     (s) => s.estado === "En revisión" || s.estado === "Pendiente docs."
   );
 
-  // Solicitudes con dictamen definitivo (Aprobada o Rechazada)
-  const dictaminadas = solicitudes.filter(
-    (s) => s.estado === "Aprobada" || s.estado === "Rechazada"
-  );
-
-  const baseLista = modo === "bandeja" ? pendientesEvaluacion : dictaminadas;
-
-  const filtradas = baseLista.filter((s) => {
+  const filtradas = pendientesEvaluacion.filter((s) => {
     const coincideEtapa =
       etapaFiltro === "Todas" || s.etapaActual === etapaFiltro;
     const coincideTexto =
@@ -63,25 +56,27 @@ export function ComiteView({
       <div className="flex flex-wrap items-start justify-between gap-4 mb-7">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[#165C58] mb-1">
-            Consola Exclusiva de Evaluación Institucional · Chain of Responsibility
+            Vista Única Restringida · Evaluación Institucional (Chain of Responsibility)
           </div>
           <h2
             className="font-display text-2xl font-semibold text-[#1A2928]"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            {modo === "bandeja"
-              ? "Bandeja de Evaluación por Etapa"
-              : "Historial de Dictámenes y Actas"}
+            Bandeja Exclusiva de Evaluación del Comité
           </h2>
           <p className="text-sm text-stone-500 mt-0.5">
-            Evaluador activo: <strong>{usuario.nombre}</strong> · Umbral mínimo
-            institucional:{" "}
+            Evaluador activo: <strong>{usuario.nombre}</strong> · Etapa asignada:{" "}
+            <strong className="text-[#165C58]">
+              {usuario.comiteAsignado || "Todas las etapas"}
+            </strong>{" "}
+            · Umbral mínimo:{" "}
             <strong className="text-[#165C58]">
               {parametros.umbralPuntajeMinimo}/100 pts
-            </strong>{" "}
-            · Promedio mín.:{" "}
-            <strong>{parametros.promedioMinimoRequerido.toFixed(1)}</strong>
+            </strong>
           </p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 px-3.5 py-2 rounded-lg text-xs font-medium">
+          🔒 Acceso restringido únicamente a la emisión de dictámenes
         </div>
       </div>
 
@@ -95,12 +90,17 @@ export function ComiteView({
           return (
             <button
               key={etapa}
-              onClick={() =>
-                setEtapaFiltro(activa ? "Todas" : etapa)
-              }
+              disabled={tieneComiteFijo && !activa}
+              onClick={() => {
+                if (!tieneComiteFijo) {
+                  setEtapaFiltro(activa ? "Todas" : etapa);
+                }
+              }}
               className={`text-left rounded-xl border p-4 transition-all ${
                 activa
                   ? "bg-[#165C58] text-white border-[#165C58] shadow-sm"
+                  : tieneComiteFijo
+                  ? "bg-stone-100/70 border-stone-200/50 opacity-50 cursor-not-allowed"
                   : "bg-white border-stone-200/80 hover:border-stone-400"
               }`}
             >
@@ -146,31 +146,33 @@ export function ComiteView({
           placeholder="Buscar expediente por estudiante, programa o ID..."
           className="flex-1 border border-stone-200 rounded-lg px-3.5 py-2 text-sm bg-white focus:outline-none focus:border-[#165C58]"
         />
-        <div className="flex gap-1.5 flex-wrap">
-          <button
-            onClick={() => setEtapaFiltro("Todas")}
-            className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
-              etapaFiltro === "Todas"
-                ? "bg-[#165C58] text-white border-[#165C58]"
-                : "bg-white text-stone-600 border-stone-200 hover:border-stone-400"
-            }`}
-          >
-            Todas las etapas
-          </button>
-          {ETAPAS_COMITE.map((et) => (
+        {!tieneComiteFijo && (
+          <div className="flex gap-1.5 flex-wrap">
             <button
-              key={et}
-              onClick={() => setEtapaFiltro(et)}
+              onClick={() => setEtapaFiltro("Todas")}
               className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
-                etapaFiltro === et
+                etapaFiltro === "Todas"
                   ? "bg-[#165C58] text-white border-[#165C58]"
                   : "bg-white text-stone-600 border-stone-200 hover:border-stone-400"
               }`}
             >
-              {et}
+              Todas las etapas
             </button>
-          ))}
-        </div>
+            {ETAPAS_COMITE.map((et) => (
+              <button
+                key={et}
+                onClick={() => setEtapaFiltro(et)}
+                className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                  etapaFiltro === et
+                    ? "bg-[#165C58] text-white border-[#165C58]"
+                    : "bg-white text-stone-600 border-stone-200 hover:border-stone-400"
+                }`}
+              >
+                {et}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Tabla de Evaluación del Comité */}
@@ -269,7 +271,7 @@ export function ComiteView({
                         }}
                         className="bg-[#165C58] text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-[#1A6E69] transition-colors"
                       >
-                        {modo === "bandeja" ? "Evaluar Caso" : "Ver Acta"}
+                        Evaluar Caso
                       </button>
                     </td>
                   </tr>

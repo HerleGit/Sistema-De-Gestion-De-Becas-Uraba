@@ -90,6 +90,11 @@ export interface UsuarioSesion {
   rol: RolUsuario;
   cargo: string;
   comiteAsignado?: EtapaComite | "Todos";
+  telefono?: string;
+  municipio?: string;
+  programa?: string;
+  semestre?: number;
+  promedio?: number;
 }
 
 export interface ParametrosSistema {
@@ -109,8 +114,16 @@ export interface UsuarioSistema {
   id: string;
   nombre: string;
   correo: string;
+  correosAlternos?: string[];
+  passwordClave?: string;
   rol: RolUsuario;
   cargo: string;
   etapaAsignada?: EtapaComite;
   activo: boolean;
+  documentoIdentidad?: string;
+  telefono?: string;
+  municipio?: string;
+  programa?: string;
+  semestre?: number;
+  promedio?: number;
 }

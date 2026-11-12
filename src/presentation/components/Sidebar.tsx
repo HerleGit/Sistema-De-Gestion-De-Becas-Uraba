@@ -6,9 +6,8 @@ export type Screen =
   // Vistas exclusivas del Estudiante
   | "est_solicitudes"
   | "est_postular"
-  // Vistas exclusivas del Comité
+  // Vista única y exclusiva del Comité
   | "com_bandeja"
-  | "com_actas"
   // Vistas exclusivas del Administrador
   | "adm_parametros"
   | "adm_usuarios"
@@ -36,14 +35,8 @@ export const MENU_POR_ROL: Record<
     {
       id: "com_bandeja",
       icon: "⚖",
-      label: "Bandeja de Evaluación",
-      desc: "Revisión y dictamen por etapa",
-    },
-    {
-      id: "com_actas",
-      icon: "◫",
-      label: "Historial de Dictámenes",
-      desc: "Solicitudes evaluadas y actas",
+      label: "Evaluación de Solicitudes",
+      desc: "Vista única de dictamen técnico",
     },
   ],
   administrador: [

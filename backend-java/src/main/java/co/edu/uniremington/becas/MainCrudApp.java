@@ -2,46 +2,71 @@ package co.edu.uniremington.becas;
 
 import co.edu.uniremington.becas.config.HibernateUtil;
 import co.edu.uniremington.becas.dao.*;
+import co.edu.uniremington.becas.external.IMunicipioGeoApiService;
+import co.edu.uniremington.becas.external.InfoMunicipioDaneDTO;
+import co.edu.uniremington.becas.external.MunicipiosColombiaApiService;
 import co.edu.uniremington.becas.modelo.*;
+import co.edu.uniremington.becas.servicios.CalculadoraVulnerabilidadRuralPrioritaria;
 import co.edu.uniremington.becas.servicios.CalculadoraVulnerabilidadUraba;
 import co.edu.uniremington.becas.servicios.GestionBecasCrudService;
+import co.edu.uniremington.becas.servicios.ICalculadoraVulnerabilidad;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * ACTIVIDAD EVALUATIVA - FASE II (ING-PROY-3 · 15%)
- * Clase Main de prueba que demuestra las operaciones CRUD (Crear, Leer, Actualizar, Eliminar)
- * utilizando Hibernate ORM y MySQL sobre al menos 3 entidades claves del sistema:
- *   1. Entidad Usuario       (tabla 'usuarios')
- *   2. Entidad Estudiante    (tabla 'estudiantes')
- *   3. Entidad SolicitudBeca (tabla 'solicitudes_beca')
- *   4. Entidad DocumentoAdjunto (tabla 'documentos_adjuntos')
+ * ACTIVIDAD EVALUATIVA - FASE II & FASE III (ING-PROY-3 / ING-PROY-4)
+ * Clase principal que integra:
+ *   1. Principios SOLID (SRP, OCP, LSP, ISP, DIP) con Inyección de Dependencias por constructor.
+ *   2. Consumo de API Externa (Datos Abiertos de Colombia - DANE DIVIPOLA en formato JSON).
+ *   3. Persistencia completa CRUD con Hibernate ORM y MySQL sobre las entidades claves:
+ *      - Usuario ('usuarios')
+ *      - Estudiante ('estudiantes')
+ *      - SolicitudBeca ('solicitudes_beca')
+ *      - DocumentoAdjunto ('documentos_adjuntos')
  */
 public class MainCrudApp {
 
     public static void main(String[] args) {
         System.out.println("==========================================================================");
-        System.out.println("   PRUEBA INTEGRAL DE MAPEO ORM Y OPERACIONES CRUD CON HIBERNATE Y MYSQL  ");
+        System.out.println("   FASE III (ING-PROY-4): PRINCIPIOS SOLID, API EXTERNA E IMPLEMENTACION  ");
         System.out.println("   Proyecto N.° 8: Gestión de Becas y Apoyo Estudiantil - Región de Urabá ");
         System.out.println("==========================================================================\n");
 
+        // Capas de Acceso a Datos (SRP: cada DAO administra únicamente su entidad)
         InstitucionDAO institucionDAO = new InstitucionDAO();
         UsuarioDAO usuarioDAO = new UsuarioDAO();
         EstudianteDAO estudianteDAO = new EstudianteDAO();
         SolicitudBecaDAO solicitudDAO = new SolicitudBecaDAO();
         DocumentoAdjuntoDAO documentoDAO = new DocumentoAdjuntoDAO();
 
+        // Servicio de consumo de API Externa mediante interfaz (DIP / SRP)
+        IMunicipioGeoApiService apiExternaDane = new MunicipiosColombiaApiService();
+
+        // Estrategias de cálculo de vulnerabilidad intercambiables (OCP / LSP / DIP)
+        ICalculadoraVulnerabilidad calculadoraEstandar = new CalculadoraVulnerabilidadUraba();
+        ICalculadoraVulnerabilidad calculadoraRural = new CalculadoraVulnerabilidadRuralPrioritaria();
+
         GestionBecasCrudService servicio = new GestionBecasCrudService(
                 usuarioDAO,
                 estudianteDAO,
                 solicitudDAO,
                 documentoDAO,
-                new CalculadoraVulnerabilidadUraba()
+                calculadoraEstandar,
+                apiExternaDane
         );
 
         try {
+            // =========================================================================
+            // 0. DEMOSTRACIÓN DE CONSUMO DE API EXTERNA (DATOS ABIERTOS COLOMBIA - DANE)
+            // =========================================================================
+            System.out.println("--- [0] CONSUMO DE API EXTERNA (DANE DIVIPOLA - DATOS ABIERTOS COLOMBIA) ---");
+            InfoMunicipioDaneDTO infoChigorodo = servicio.validarMunicipioConApiExterna("Chigorodó");
+            System.out.println("[API EXTERNA HTTP GET] URL: " + infoChigorodo.getFuenteApiUrl());
+            System.out.println("[API EXTERNA JSON] Respuesta procesada: " + infoChigorodo);
+            System.out.println("[API EXTERNA RAW JSON] " + infoChigorodo.getJsonCrudo() + "\n");
+
             // Obtener la institución sede Apartadó (ID = 1)
             Institucion uniremington = institucionDAO.buscarPorId(1)
                     .orElseThrow(() -> new IllegalStateException("Institución ID 1 no encontrada en MySQL"));
@@ -51,7 +76,6 @@ public class MainCrudApp {
             // =========================================================================
             System.out.println("--- [1] OPERACIONES CRUD ENTIDAD: USUARIO ---");
 
-            // CREATE
             Usuario nuevoUsuario = new Usuario(
                     "Carlos Andrés Mena Córdoba",
                     "carlos.mena@uniremington.edu.co",
@@ -62,11 +86,9 @@ public class MainCrudApp {
             usuarioDAO.crear(nuevoUsuario);
             System.out.println("[CREATE Usuario] Registro insertado con ID: " + nuevoUsuario.getIdUsuario());
 
-            // READ
             Optional<Usuario> usuarioLeido = usuarioDAO.buscarPorId(nuevoUsuario.getIdUsuario());
             System.out.println("[READ Usuario] Consulta por ID: " + usuarioLeido.orElse(null));
 
-            // UPDATE
             nuevoUsuario.setCargo("Estudiante Representante · Semestre 7");
             usuarioDAO.actualizar(nuevoUsuario);
             System.out.println("[UPDATE Usuario] Cargo actualizado a: " + nuevoUsuario.getCargo());
@@ -76,13 +98,12 @@ public class MainCrudApp {
             // =========================================================================
             System.out.println("\n--- [2] OPERACIONES CRUD ENTIDAD: ESTUDIANTE ---");
 
-            // CREATE
             Estudiante nuevoEstudiante = new Estudiante(
                     nuevoUsuario,
                     uniremington,
                     "1027955800",
                     "3147896541",
-                    "Chigorodó",
+                    infoChigorodo.getNombreMunicipio(),
                     "Ingeniería de Sistemas",
                     7,
                     new BigDecimal("4.20")
@@ -90,47 +111,49 @@ public class MainCrudApp {
             estudianteDAO.crear(nuevoEstudiante);
             System.out.println("[CREATE Estudiante] Registro insertado con ID: " + nuevoEstudiante.getIdEstudiante());
 
-            // READ
             Optional<Estudiante> estudianteLeido = estudianteDAO.buscarPorId(nuevoEstudiante.getIdEstudiante());
             System.out.println("[READ Estudiante] Consulta por ID: " + estudianteLeido.orElse(null));
 
-            // UPDATE
             nuevoEstudiante.setPromedioAcumulado(new BigDecimal("4.45"));
             estudianteDAO.actualizar(nuevoEstudiante);
             System.out.println("[UPDATE Estudiante] Promedio actualizado a: " + nuevoEstudiante.getPromedioAcumulado());
 
             // =========================================================================
-            // 3. PRUEBA CRUD SOBRE ENTIDAD CLAVE #3: SOLICITUD_BECA (tabla 'solicitudes_beca')
+            // 3. PRUEBA CRUD Y SOLID SOBRE ENTIDAD CLAVE #3: SOLICITUD_BECA
             // =========================================================================
-            System.out.println("\n--- [3] OPERACIONES CRUD ENTIDAD: SOLICITUD_BECA ---");
+            System.out.println("\n--- [3] OPERACIONES CRUD + SOLID + API EXTERNA: SOLICITUD_BECA ---");
 
-            // CREATE (con cálculo automático de puntaje mediante el servicio SOLID)
+            // La distancia se autocompleta desde la API Externa (0 -> 28.0 km desde Chigorodó)
             SolicitudBeca nuevaSolicitud = new SolicitudBeca(
                     "BEC-2026-099",
                     nuevoEstudiante,
                     new BigDecimal("600000.00"),
                     3,
                     1,
-                    new BigDecimal("28.00"),
+                    BigDecimal.ZERO,
                     0
             );
             servicio.registrarSolicitudConPuntaje(nuevaSolicitud);
             System.out.println("[CREATE SolicitudBeca] Radicado creado: " + nuevaSolicitud.getCodigoRadicado()
-                    + " | Puntaje calculado: " + nuevaSolicitud.getPuntajeVulnerabilidad() + "/100 pts");
+                    + " | Distancia autocompletada por API: " + nuevaSolicitud.getDistanciaCampusKm() + " km"
+                    + " | Puntaje RF2 (Estrategia Estándar): " + nuevaSolicitud.getPuntajeVulnerabilidad() + "/100 pts");
 
-            // READ (listar todas las solicitudes en la base de datos)
+            // Demostración explícita de OCP y LSP: cálculo con estrategia rural sin modificar la entidad
+            int puntajeRural = calculadoraRural.calcularPuntaje(nuevaSolicitud);
+            System.out.println("[SOLID OCP/LSP] Puntaje evaluado con CalculadoraVulnerabilidadRuralPrioritaria: "
+                    + puntajeRural + "/100 pts");
+
             List<SolicitudBeca> todasLasSolicitudes = solicitudDAO.listarTodos();
             System.out.println("[READ SolicitudBeca] Total de solicitudes en MySQL: " + todasLasSolicitudes.size());
             todasLasSolicitudes.forEach(s -> System.out.println("   -> " + s));
 
-            // UPDATE (avanzar etapa del comité y aprobar la solicitud)
             nuevaSolicitud.setEtapaActual("APROBACION_FINAL");
             nuevaSolicitud.setEstadoSolicitud("APROBADA");
             solicitudDAO.actualizar(nuevaSolicitud);
             System.out.println("[UPDATE SolicitudBeca] Estado actualizado a: " + nuevaSolicitud.getEstadoSolicitud());
 
             // =========================================================================
-            // 4. DEMOSTRACIÓN DE OPERACIÓN DELETE (ELIMINAR) EN CASCADA / CONTROLADA
+            // 4. DEMOSTRACIÓN DE OPERACIÓN DELETE (ELIMINAR REGISTROS DE PRUEBA)
             // =========================================================================
             System.out.println("\n--- [4] DEMOSTRACIÓN DE OPERACIÓN DELETE (ELIMINAR REGISTROS DE PRUEBA) ---");
 
@@ -144,7 +167,7 @@ public class MainCrudApp {
             System.out.println("[DELETE Usuario] Usuario ID " + nuevoUsuario.getIdUsuario() + " eliminado: " + usrEliminado);
 
             System.out.println("\n==========================================================================");
-            System.out.println("   CICLO CRUD (CREATE, READ, UPDATE, DELETE) COMPLETADO EXITOSAMENTE      ");
+            System.out.println("   FASE III: SOLID, API EXTERNA Y CRUD COMPLETADOS EXITOSAMENTE           ");
             System.out.println("==========================================================================");
 
         } finally {
@@ -152,4 +175,3 @@ public class MainCrudApp {
         }
     }
 }
-

@@ -15,7 +15,7 @@ import { SolicitudBecaBuilder } from "../business/builders/SolicitudBecaBuilder"
 
 const STORAGE_KEY = "uniremington_becas_uraba_v2";
 const PARAMS_KEY = "uniremington_becas_params_v1";
-const USERS_KEY = "uniremington_becas_users_v1";
+const USERS_KEY = "uniremington_becas_users_v2";
 
 export const PARAMETROS_POR_DEFECTO: ParametrosSistema = {
   semestreActivo: "2026-II",
@@ -34,9 +34,11 @@ export const USUARIOS_INICIALES: UsuarioSistema[] = [
   {
     id: "USR-01",
     nombre: "M. Restrepo",
-    correo: "m.restrepo@uniremington.edu.co",
+    correo: "documental.uraba@uniremington.edu.co",
+    correosAlternos: ["m.restrepo@uniremington.edu.co"],
+    passwordClave: "Documental2026*",
     rol: "comite",
-    cargo: "Analista de Validación Documental",
+    cargo: "Comité Evaluador · Validación Documental",
     etapaAsignada: "Validación Documental",
     activo: true,
   },
@@ -44,26 +46,32 @@ export const USUARIOS_INICIALES: UsuarioSistema[] = [
     id: "USR-02",
     nombre: "Marta Lucía Jiménez Torres",
     correo: "marta.jimenez@uniremington.edu.co",
+    correosAlternos: ["socioeconomico.uraba@uniremington.edu.co"],
+    passwordClave: "Socioeconomico2026*",
     rol: "comite",
-    cargo: "Coordinadora Comité Socioeconómico",
+    cargo: "Coordinadora · Comité Socioeconómico",
     etapaAsignada: "Comité Socioeconómico",
     activo: true,
   },
   {
     id: "USR-03",
     nombre: "Carlos E. Gaviria",
-    correo: "c.gaviria@uniremington.edu.co",
+    correo: "financiero.uraba@uniremington.edu.co",
+    correosAlternos: ["c.gaviria@uniremington.edu.co"],
+    passwordClave: "Financiero2026*",
     rol: "comite",
-    cargo: "Delegado Comité Financiero",
+    cargo: "Delegado · Comité Financiero",
     etapaAsignada: "Comité Financiero",
     activo: true,
   },
   {
     id: "USR-04",
     nombre: "Dra. Elena Arango",
-    correo: "rectoria.uraba@uniremington.edu.co",
+    correo: "aprobacion.uraba@uniremington.edu.co",
+    correosAlternos: ["rectoria.uraba@uniremington.edu.co"],
+    passwordClave: "Aprobacion2026*",
     rol: "comite",
-    cargo: "Comité de Aprobación Final",
+    cargo: "Rectoría Sede · Comité de Aprobación Final",
     etapaAsignada: "Aprobación Final",
     activo: true,
   },
@@ -71,9 +79,40 @@ export const USUARIOS_INICIALES: UsuarioSistema[] = [
     id: "USR-05",
     nombre: "H. Robledo Suárez",
     correo: "bienestar.uraba@uniremington.edu.co",
+    passwordClave: "AdminUraba2026*",
     rol: "administrador",
     cargo: "Administrador General del Sistema",
     activo: true,
+  },
+  {
+    id: "EST-01",
+    nombre: "Yulieth Córdoba Palacios",
+    correo: "yulieth.cordoba@uniremington.edu.co",
+    passwordClave: "Estudiante2026*",
+    rol: "estudiante",
+    cargo: "Estudiante · Ingeniería de Sistemas (6.° Semestre)",
+    activo: true,
+    documentoIdentidad: "1027890451",
+    telefono: "312 458 9012",
+    municipio: "Turbo",
+    programa: "Ingeniería de Sistemas",
+    semestre: 6,
+    promedio: 4.3,
+  },
+  {
+    id: "EST-02",
+    nombre: "Edilberto Martínez Úsuga",
+    correo: "edilberto.martinez@uniremington.edu.co",
+    passwordClave: "Estudiante2026*",
+    rol: "estudiante",
+    cargo: "Estudiante · Administración de Empresas (4.° Semestre)",
+    activo: true,
+    documentoIdentidad: "1028012394",
+    telefono: "310 987 6543",
+    municipio: "Carepa",
+    programa: "Administración de Empresas",
+    semestre: 4,
+    promedio: 3.9,
   },
 ];
 
@@ -495,6 +534,12 @@ export class SolicitudRepository {
     const actuales = this.obtenerTodas();
     const actualizadas = [nueva, ...actuales];
     this.guardarTodas(actualizadas);
+    // Persistir también en la base de datos MySQL (becas_uraba_db)
+    fetch("/api/solicitudes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nueva),
+    }).catch(() => {});
     return actualizadas;
   }
 
@@ -504,7 +549,67 @@ export class SolicitudRepository {
       s.id === solicitudActualizada.id ? solicitudActualizada : s
     );
     this.guardarTodas(actualizadas);
+    // Sincronizar cambio y auditoría en la base de datos MySQL (becas_uraba_db)
+    fetch("/api/solicitudes", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(solicitudActualizada),
+    }).catch(() => {});
     return actualizadas;
+  }
+
+  public static async registrarEstudiante(datos: {
+    nombre: string;
+    documentoIdentidad: string;
+    telefono: string;
+    correo: string;
+    password: string;
+    municipio: string;
+    programa: string;
+    semestre: number;
+    promedio: number;
+  }): Promise<{ usuario: UsuarioSistema; guardadoMysql: boolean }> {
+    const actuales = this.obtenerUsuarios();
+    const numEst = actuales.filter((u) => u.rol === "estudiante").length + 1;
+    const nuevoUsuario: UsuarioSistema = {
+      id: `EST-${String(numEst).padStart(2, "0")}`,
+      nombre: datos.nombre,
+      correo: datos.correo,
+      passwordClave: datos.password,
+      rol: "estudiante",
+      cargo: `Estudiante · ${datos.programa} (${datos.semestre}.° Semestre)`,
+      activo: true,
+      documentoIdentidad: datos.documentoIdentidad,
+      telefono: datos.telefono,
+      municipio: datos.municipio,
+      programa: datos.programa,
+      semestre: datos.semestre,
+      promedio: datos.promedio,
+    };
+
+    const sinDuplicado = actuales.filter(
+      (u) =>
+        u.correo.toLowerCase() !== datos.correo.toLowerCase() &&
+        u.documentoIdentidad !== datos.documentoIdentidad
+    );
+    this.guardarUsuarios([...sinDuplicado, nuevoUsuario]);
+
+    let guardadoMysql = false;
+    try {
+      const resp = await fetch("/api/estudiantes/registro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datos),
+      });
+      if (resp.ok) {
+        const resJson = await resp.json();
+        guardadoMysql = Boolean(resJson.ok);
+      }
+    } catch {
+      // Fallback local
+    }
+
+    return { usuario: nuevoUsuario, guardadoMysql };
   }
 
   public static restablecerSemilla(): SolicitudBeca[] {

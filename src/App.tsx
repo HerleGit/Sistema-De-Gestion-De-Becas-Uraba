@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ParametrosSistema,
   RolUsuario,
@@ -46,13 +46,38 @@ export default function App() {
   const [solicitudSeleccionada, setSolicitudSeleccionada] =
     useState<SolicitudBeca | null>(null);
 
+  // Sincronizar estudiantes registrados en la base de datos MySQL (becas_uraba_db)
+  useEffect(() => {
+    fetch("/api/estudiantes")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.estudiantes)) {
+          const actuales = SolicitudRepository.obtenerUsuarios();
+          const mapa = new Map(actuales.map((u) => [u.correo.toLowerCase(), u]));
+          for (const est of data.estudiantes as UsuarioSistema[]) {
+            mapa.set(est.correo.toLowerCase(), est);
+          }
+          const combinados = Array.from(mapa.values());
+          SolicitudRepository.guardarUsuarios(combinados);
+          setUsuariosSistema(combinados);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleLogin = (sesion: UsuarioSesion) => {
     setUsuario(sesion);
     setScreen(PANTALLA_INICIAL_POR_ROL[sesion.rol]);
   };
 
   if (screen === "login") {
-    return <LoginView onLogin={handleLogin} />;
+    return (
+      <LoginView
+        usuariosRegistrados={usuariosSistema}
+        onLogin={handleLogin}
+        onUsuarioCreado={setUsuariosSistema}
+      />
+    );
   }
 
   const handleCrearSolicitud = (nueva: SolicitudBeca) => {
@@ -147,17 +172,15 @@ export default function App() {
           />
         )}
 
-        {/* 2. VISTAS EXCLUSIVAS DEL COMITÉ */}
-        {usuario.rol === "comite" &&
-          (screen === "com_bandeja" || screen === "com_actas") && (
-            <ComiteView
-              modo={screen === "com_bandeja" ? "bandeja" : "actas"}
-              usuario={usuario}
-              solicitudes={solicitudes}
-              parametros={parametros}
-              onSelectSolicitud={setSolicitudSeleccionada}
-            />
-          )}
+        {/* 2. VISTA ÚNICA Y EXCLUSIVA DEL COMITÉ (SOLO EVALUACIÓN) */}
+        {usuario.rol === "comite" && (
+          <ComiteView
+            usuario={usuario}
+            solicitudes={solicitudes}
+            parametros={parametros}
+            onSelectSolicitud={setSolicitudSeleccionada}
+          />
+        )}
 
         {/* 3. VISTAS EXCLUSIVAS DEL ADMINISTRADOR */}
         {usuario.rol === "administrador" &&

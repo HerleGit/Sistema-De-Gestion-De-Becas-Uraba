@@ -29,13 +29,13 @@ export function AdministradorView({
 }) {
   const [formParams, setFormParams] = useState<ParametrosSistema>(parametros);
   const [msgGuardado, setMsgGuardado] = useState<string | null>(null);
-
-  // Estado para agregar nuevo integrante de comité
-  const [nuevoNombre, setNuevoNombre] = useState("");
-  const [nuevoCorreo, setNuevoCorreo] = useState("");
-  const [nuevaEtapa, setNuevaEtapa] = useState<EtapaComite>(
-    "Comité Socioeconómico"
+  const [usuarioDetalle, setUsuarioDetalle] = useState<UsuarioSistema | null>(
+    null
   );
+  const [mostrarClavesTabla, setMostrarClavesTabla] = useState(false);
+  const [filtroRolUsuario, setFiltroRolUsuario] = useState<
+    "todos" | "estudiante" | "comite" | "administrador"
+  >("todos");
 
   const sumaPesos =
     Number(formParams.pesoIngresos) +
@@ -56,22 +56,9 @@ export function AdministradorView({
       u.id === id ? { ...u, activo: !u.activo } : u
     );
     onSaveUsuarios(actualizados);
-  };
-
-  const handleAgregarEvaluador = () => {
-    if (!nuevoNombre.trim() || !nuevoCorreo.trim()) return;
-    const nuevo: UsuarioSistema = {
-      id: `USR-0${usuarios.length + 1}`,
-      nombre: nuevoNombre.trim(),
-      correo: nuevoCorreo.trim(),
-      rol: "comite",
-      cargo: `Evaluador · ${nuevaEtapa}`,
-      etapaAsignada: nuevaEtapa,
-      activo: true,
-    };
-    onSaveUsuarios([...usuarios, nuevo]);
-    setNuevoNombre("");
-    setNuevoCorreo("");
+    if (usuarioDetalle && usuarioDetalle.id === id) {
+      setUsuarioDetalle({ ...usuarioDetalle, activo: !usuarioDetalle.activo });
+    }
   };
 
   const exportarCSV = () => {
@@ -352,115 +339,482 @@ export function AdministradorView({
       {/* MÓDULO 2: GESTIÓN DE COMITÉS Y USUARIOS */}
       {modulo === "usuarios" && (
         <div className="flex flex-col gap-6">
-          <div className="bg-white rounded-xl border border-stone-200/80 p-5">
-            <h3 className="text-sm font-semibold text-[#1A2928] mb-3">
-              Registrar Nuevo Evaluador de Comité
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <input
-                type="text"
-                placeholder="Nombre completo del evaluador"
-                value={nuevoNombre}
-                onChange={(e) => setNuevoNombre(e.target.value)}
-                className="border border-stone-200 rounded px-3 py-2 text-sm"
-              />
-              <input
-                type="email"
-                placeholder="correo@uniremington.edu.co"
-                value={nuevoCorreo}
-                onChange={(e) => setNuevoCorreo(e.target.value)}
-                className="border border-stone-200 rounded px-3 py-2 text-sm"
-              />
-              <select
-                value={nuevaEtapa}
-                onChange={(e) => setNuevaEtapa(e.target.value as EtapaComite)}
-                className="border border-stone-200 rounded px-3 py-2 text-sm bg-white"
-              >
-                <option value="Validación Documental">
-                  Validación Documental
-                </option>
-                <option value="Comité Socioeconómico">
-                  Comité Socioeconómico
-                </option>
-                <option value="Comité Financiero">Comité Financiero</option>
-                <option value="Aprobación Final">Aprobación Final</option>
-              </select>
+          <div className="bg-emerald-50/70 rounded-xl border border-emerald-200 p-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-semibold text-[#1A2928] mb-1">
+                🔒 Directorio General de Usuarios del Sistema
+              </h3>
+              <p className="text-xs text-stone-600">
+                Haz clic en cualquier fila o en{" "}
+                <strong>"Ver toda la información"</strong> para inspeccionar la
+                ficha completa del usuario (datos personales, académicos,
+                contacto, credenciales y solicitudes asociadas).
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {(
+                [
+                  { id: "todos", label: `Todos (${usuarios.length})` },
+                  {
+                    id: "estudiante",
+                    label: `Estudiantes (${
+                      usuarios.filter((u) => u.rol === "estudiante").length
+                    })`,
+                  },
+                  {
+                    id: "comite",
+                    label: `Comités (${
+                      usuarios.filter((u) => u.rol === "comite").length
+                    })`,
+                  },
+                  {
+                    id: "administrador",
+                    label: `Admin (${
+                      usuarios.filter((u) => u.rol === "administrador").length
+                    })`,
+                  },
+                ] as const
+              ).map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setFiltroRolUsuario(f.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    filtroRolUsuario === f.id
+                      ? "bg-[#165C58] text-white border-[#165C58]"
+                      : "bg-white text-stone-600 border-stone-200 hover:border-stone-400"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
               <button
-                onClick={handleAgregarEvaluador}
-                className="bg-[#165C58] text-white rounded px-4 py-2 text-sm font-semibold hover:bg-[#1A6E69] transition-colors"
+                onClick={() => setMostrarClavesTabla((p) => !p)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-stone-200 text-[#165C58] hover:border-[#165C58]"
               >
-                + Asignar al Comité
+                {mostrarClavesTabla ? "🙈 Ocultar Claves" : "👁 Mostrar Claves"}
               </button>
             </div>
           </div>
 
           <div className="bg-white rounded-xl border border-stone-200/80 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-stone-100 bg-stone-50/70">
-                  {[
-                    "ID",
-                    "Funcionario",
-                    "Correo Institucional",
-                    "Rol",
-                    "Eslabón / Comité Asignado",
-                    "Estado",
-                    "Acción",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 text-left text-[11px] font-semibold text-stone-400 uppercase"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {usuarios.map((u) => (
-                  <tr
-                    key={u.id}
-                    className="border-b border-stone-100 last:border-0"
-                  >
-                    <td className="px-4 py-3 font-mono text-xs text-stone-400">
-                      {u.id}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-[#1A2928]">
-                      {u.nombre}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-stone-500">
-                      {u.correo}
-                    </td>
-                    <td className="px-4 py-3 text-xs capitalize font-medium text-[#165C58]">
-                      {u.rol}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-stone-600">
-                      {u.etapaAsignada || "Administración Global"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                          u.activo
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-stone-100 text-stone-500"
-                        }`}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-stone-100 bg-stone-50/70">
+                    {[
+                      "ID",
+                      "Nombre Completo / Documento",
+                      "Correo y Teléfono",
+                      "Clave Asignada",
+                      "Rol",
+                      "Detalle Académico / Comité Asignado",
+                      "Estado",
+                      "Acciones",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-[11px] font-semibold text-stone-400 uppercase"
                       >
-                        {u.activo ? "Activo" : "Suspendido"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleToggleUsuario(u.id)}
-                        className="text-xs text-[#165C58] hover:underline font-medium"
-                      >
-                        {u.activo ? "Suspender acceso" : "Reactivar"}
-                      </button>
-                    </td>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {usuarios
+                    .filter(
+                      (u) =>
+                        filtroRolUsuario === "todos" ||
+                        u.rol === filtroRolUsuario
+                    )
+                    .map((u) => {
+                      const claveReal =
+                        u.passwordClave ||
+                        (u.rol === "estudiante"
+                          ? "Estudiante2026*"
+                          : u.rol === "administrador"
+                          ? "AdminUraba2026*"
+                          : "Socioeconomico2026*");
+
+                      return (
+                        <tr
+                          key={u.id}
+                          onClick={() => setUsuarioDetalle(u)}
+                          className="border-b border-stone-100 last:border-0 hover:bg-stone-50/80 cursor-pointer transition-colors"
+                        >
+                          <td className="px-4 py-3 font-mono text-xs text-stone-400">
+                            {u.id}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-[#1A2928]">
+                              {u.nombre}
+                            </div>
+                            <div className="text-[11px] text-stone-400 font-mono">
+                              {u.rol === "estudiante"
+                                ? `C.C. ${u.documentoIdentidad || "Sin registrar"}`
+                                : u.cargo}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-xs text-stone-700">
+                              {u.correo}
+                            </div>
+                            <div className="text-[11px] text-stone-400">
+                              {u.rol === "estudiante"
+                                ? `Tel: ${u.telefono || "310 000 0000"} · ${
+                                    u.municipio || "Urabá"
+                                  }`
+                                : u.correosAlternos && u.correosAlternos.length > 0
+                                ? `Alt: ${u.correosAlternos.join(", ")}`
+                                : "Sede Regional Urabá"}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-stone-600">
+                            {mostrarClavesTabla ? (
+                              <span className="bg-stone-100 px-2 py-0.5 rounded border border-stone-200 text-[#165C58]">
+                                {claveReal}
+                              </span>
+                            ) : (
+                              "••••••••••"
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-xs capitalize font-medium text-[#165C58]">
+                            {u.rol}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-stone-600">
+                            {u.rol === "estudiante" ? (
+                              <div>
+                                <div className="font-medium text-[#1A2928]">
+                                  {u.programa || "Ingeniería de Sistemas"}
+                                </div>
+                                <div className="text-[11px] text-stone-400">
+                                  Semestre {u.semestre ?? 1}.° · Promedio:{" "}
+                                  <strong className="text-[#165C58]">
+                                    {(u.promedio ?? 4.0).toFixed(2)}
+                                  </strong>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="font-medium">
+                                {u.etapaAsignada || "Administración Global"}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                                u.activo
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-stone-100 text-stone-500"
+                              }`}
+                            >
+                              {u.activo ? "Activo" : "Suspendido"}
+                            </span>
+                          </td>
+                          <td
+                            className="px-4 py-3"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setUsuarioDetalle(u)}
+                                className="px-2.5 py-1 rounded bg-[#165C58] text-white text-xs font-medium hover:bg-[#1A6E69] transition-colors"
+                              >
+                                Ver información
+                              </button>
+                              <button
+                                onClick={() => handleToggleUsuario(u.id)}
+                                className="text-xs text-stone-500 hover:text-red-600 hover:underline font-medium"
+                              >
+                                {u.activo ? "Suspender" : "Reactivar"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {/* MODAL / FICHA COMPLETA DE INFORMACIÓN DEL USUARIO */}
+          {usuarioDetalle && (
+            <div
+              onClick={() => setUsuarioDetalle(null)}
+              className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-2xl border border-stone-200 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl"
+              >
+                <div className="bg-[#1A2928] text-white px-6 py-5 flex items-start justify-between gap-4 rounded-t-2xl">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-emerald-400 font-semibold">
+                      Ficha Integral de Usuario · ID {usuarioDetalle.id}
+                    </div>
+                    <h3
+                      className="font-display text-xl font-semibold mt-0.5"
+                      style={{ fontFamily: "var(--font-display)" }}
+                    >
+                      {usuarioDetalle.nombre}
+                    </h3>
+                    <div className="text-xs text-white/70 mt-0.5">
+                      {usuarioDetalle.cargo}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setUsuarioDetalle(null)}
+                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="p-6 flex flex-col gap-5">
+                  {/* Bloque 1: Credenciales y Cuenta (Tabla usuarios) */}
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-[#165C58] mb-2.5">
+                      1. Información de Cuenta y Credenciales
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-stone-50 rounded-xl p-4 border border-stone-200/70 text-xs">
+                      <div>
+                        <span className="text-stone-400 block">
+                          ID Interno:
+                        </span>
+                        <strong className="font-mono text-stone-800 text-sm">
+                          {usuarioDetalle.id}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-stone-400 block">
+                          Rol del Sistema (RBAC):
+                        </span>
+                        <strong className="uppercase text-[#165C58] text-sm">
+                          {usuarioDetalle.rol}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-stone-400 block">
+                          Correo Institucional Principal:
+                        </span>
+                        <strong className="text-stone-800">
+                          {usuarioDetalle.correo}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-stone-400 block">
+                          Contraseña / Clave Asignada:
+                        </span>
+                        <strong className="font-mono bg-white px-2 py-0.5 rounded border border-stone-200 text-[#165C58]">
+                          {usuarioDetalle.passwordClave ||
+                            (usuarioDetalle.rol === "estudiante"
+                              ? "Estudiante2026*"
+                              : usuarioDetalle.rol === "administrador"
+                              ? "AdminUraba2026*"
+                              : "Socioeconomico2026*")}
+                        </strong>
+                      </div>
+                      {usuarioDetalle.correosAlternos &&
+                        usuarioDetalle.correosAlternos.length > 0 && (
+                          <div className="sm:col-span-2">
+                            <span className="text-stone-400 block">
+                              Correo Institucional Alterno:
+                            </span>
+                            <strong className="text-stone-700">
+                              {usuarioDetalle.correosAlternos.join(", ")}
+                            </strong>
+                          </div>
+                        )}
+                      <div>
+                        <span className="text-stone-400 block">
+                          Estado de Acceso:
+                        </span>
+                        <span
+                          className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                            usuarioDetalle.activo
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {usuarioDetalle.activo
+                            ? "ACTIVO Y HABILITADO"
+                            : "SUSPENDIDO"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-stone-400 block">
+                          Cargo / Perfil:
+                        </span>
+                        <strong className="text-stone-700">
+                          {usuarioDetalle.cargo}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bloque 2: Datos Académicos y Personales (si es Estudiante) o Asignación (si es Comité) */}
+                  {usuarioDetalle.rol === "estudiante" ? (
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-[#165C58] mb-2.5">
+                        2. Información Personal y Académica
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-stone-50 rounded-xl p-4 border border-stone-200/70 text-xs">
+                        <div>
+                          <span className="text-stone-400 block">
+                            Documento de Identidad:
+                          </span>
+                          <strong className="font-mono text-stone-800 text-sm">
+                            {usuarioDetalle.documentoIdentidad || "No registrado"}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-stone-400 block">
+                            Teléfono Celular:
+                          </span>
+                          <strong className="text-stone-800 text-sm">
+                            {usuarioDetalle.telefono || "310 000 0000"}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-stone-400 block">
+                            Municipio de Residencia:
+                          </span>
+                          <strong className="text-stone-800 text-sm">
+                            {usuarioDetalle.municipio || "Apartadó"} (Urabá)
+                          </strong>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <span className="text-stone-400 block">
+                            Programa Académico e Institución:
+                          </span>
+                          <strong className="text-stone-800 text-sm">
+                            {usuarioDetalle.programa || "Ingeniería de Sistemas"}
+                          </strong>
+                          <span className="block text-[11px] text-stone-500">
+                            Corporación Universitaria Remington · Sede Urabá - Apartadó
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-stone-400 block">
+                            Semestre y Promedio:
+                          </span>
+                          <strong className="text-[#165C58] text-sm font-mono">
+                            Sem. {usuarioDetalle.semestre ?? 1}.° · Prom:{" "}
+                            {(usuarioDetalle.promedio ?? 4.0).toFixed(2)} / 5.0
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-[#165C58] mb-2.5">
+                        2. Asignación Institucional y Permisos RBAC
+                      </div>
+                      <div className="bg-stone-50 rounded-xl p-4 border border-stone-200/70 text-xs flex flex-col gap-2">
+                        <div>
+                          <span className="text-stone-400">
+                            Eslabón / Comité Asignado:{" "}
+                          </span>
+                          <strong className="text-[#165C58]">
+                            {usuarioDetalle.etapaAsignada ||
+                              "Gobierno y Administración Global"}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-stone-400">
+                            Restricción de Vista:{" "}
+                          </span>
+                          <strong className="text-stone-700">
+                            {usuarioDetalle.rol === "comite"
+                              ? "Acceso restringido a una única vista de evaluación de expedientes de su etapa."
+                              : "Acceso total a parametrización RF2, directorio de usuarios y auditoría hash."}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bloque 3: Solicitudes de Beca o Actividad asociada */}
+                  {usuarioDetalle.rol === "estudiante" && (
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-[#165C58] mb-2.5">
+                        3. Solicitudes de Beca Asociadas a este Estudiante
+                      </div>
+                      {(() => {
+                        const solicitudesEst = solicitudes.filter(
+                          (s) =>
+                            s.datosPersonales.id ===
+                              usuarioDetalle.documentoIdentidad ||
+                            s.datosPersonales.correo?.toLowerCase() ===
+                              usuarioDetalle.correo.toLowerCase() ||
+                            s.datosPersonales.nombre.toLowerCase() ===
+                              usuarioDetalle.nombre.toLowerCase()
+                        );
+                        if (solicitudesEst.length === 0) {
+                          return (
+                            <div className="bg-stone-50 rounded-xl p-4 border border-stone-200/70 text-xs text-stone-500">
+                              Este estudiante está registrado en la base de
+                              datos pero aún no ha radicado ninguna solicitud de
+                              beca en el semestre actual.
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="flex flex-col gap-2">
+                            {solicitudesEst.map((s) => (
+                              <div
+                                key={s.id}
+                                className="flex flex-wrap items-center justify-between gap-3 bg-stone-50 rounded-xl p-3.5 border border-stone-200/80 text-xs"
+                              >
+                                <div>
+                                  <span className="font-mono font-semibold text-[#165C58]">
+                                    {s.id}
+                                  </span>{" "}
+                                  · Radicada el {s.fecha} · Puntaje:{" "}
+                                  <strong>{s.puntajeVulnerabilidad}/100</strong>{" "}
+                                  · Etapa: <strong>{s.etapaActual}</strong>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {estadoBadge(s.estado)}
+                                  <button
+                                    onClick={() => {
+                                      setUsuarioDetalle(null);
+                                      onSelectSolicitud(s);
+                                    }}
+                                    className="px-2.5 py-1 rounded bg-[#165C58] text-white font-medium hover:bg-[#1A6E69]"
+                                  >
+                                    Abrir Expediente
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-3 border-t border-stone-100">
+                    <button
+                      onClick={() => handleToggleUsuario(usuarioDetalle.id)}
+                      className="text-xs font-medium text-stone-600 hover:text-red-600 underline"
+                    >
+                      {usuarioDetalle.activo
+                        ? "Suspender acceso de este usuario"
+                        : "Reactivar acceso de este usuario"}
+                    </button>
+                    <button
+                      onClick={() => setUsuarioDetalle(null)}
+                      className="px-4 py-2 rounded-lg bg-[#1A2928] text-white text-xs font-semibold hover:bg-stone-800"
+                    >
+                      Cerrar Ficha
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

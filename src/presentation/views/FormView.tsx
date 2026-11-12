@@ -11,6 +11,10 @@ import {
   ModuloCalculoVulnerabilidad,
   SolicitudBecaBuilder,
 } from "../../business/builders/SolicitudBecaBuilder";
+import {
+  InfoMunicipioDaneDTO,
+  servicioApiExternaMunicipios,
+} from "../../business/external/MunicipiosColombiaApiService";
 
 const DRAFT_STORAGE_KEY = "uniremington_borrador_postulacion_v1";
 
@@ -85,12 +89,24 @@ export function FormView({
   const [aceptaHabeasData, setAceptaHabeasData] = useState(true);
   const [borradorSincronizado, setBorradorSincronizado] = useState(false);
 
+  // Estado del consumo de la API Externa (Datos Abiertos de Colombia - DANE DIVIPOLA)
+  const [infoApiDane, setInfoApiDane] = useState<InfoMunicipioDaneDTO | null>(
+    null
+  );
+  const [cargandoApi, setCargandoApi] = useState(false);
+  const [mostrarJsonApi, setMostrarJsonApi] = useState(false);
+
   const [formData, setFormData] = useState(() => {
     try {
       const guardado = localStorage.getItem(DRAFT_STORAGE_KEY);
       if (guardado) {
         const parsed = JSON.parse(guardado);
-        if (parsed.formData) return parsed.formData;
+        if (
+          parsed.formData &&
+          parsed.formData.cedula === (usuario.idDocumento || "1027890451")
+        ) {
+          return parsed.formData;
+        }
       }
     } catch {
       // Fallback
@@ -98,12 +114,12 @@ export function FormView({
     return {
       nombre: usuario.nombre || "Yulieth Córdoba Palacios",
       cedula: usuario.idDocumento || "1027890451",
-      telefono: "312 458 9012",
+      telefono: usuario.telefono || "312 458 9012",
       correo: usuario.correo || "yulieth.cordoba@uniremington.edu.co",
-      municipio: "Turbo",
-      programa: "Ingeniería de Sistemas",
-      semestre: "6",
-      promedio: "4.3",
+      municipio: usuario.municipio || "Turbo",
+      programa: usuario.programa || "Ingeniería de Sistemas",
+      semestre: String(usuario.semestre || 6),
+      promedio: String(usuario.promedio || 4.3),
       ingresos: "650000",
       dependientes: "3",
       estrato: "1",
@@ -116,12 +132,44 @@ export function FormView({
     DOCUMENTOS_INICIALES
   );
 
+  // Consultar la API Externa automáticamente cuando cambia el municipio seleccionado
+  const consultarApiExternaMunicipio = async (
+    municipioConsulta: string,
+    autocompletarDistancia = true
+  ) => {
+    setCargandoApi(true);
+    try {
+      const dto = await servicioApiExternaMunicipios.consultarMunicipioUraba(
+        municipioConsulta
+      );
+      setInfoApiDane(dto);
+      if (autocompletarDistancia) {
+        setFormData((prev: typeof formData) => ({
+          ...prev,
+          municipio: dto.municipio,
+          distancia: String(dto.distanciaCampusApartadoKm),
+        }));
+      }
+    } finally {
+      setCargandoApi(false);
+    }
+  };
+
+  useEffect(() => {
+    consultarApiExternaMunicipio(formData.municipio || "Turbo", false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Guardado automático de borrador para tolerancia a desconexiones regionales (RNF Disponibilidad)
   useEffect(() => {
     try {
       localStorage.setItem(
         DRAFT_STORAGE_KEY,
-        JSON.stringify({ formData, step, timestamp: new Date().toLocaleTimeString() })
+        JSON.stringify({
+          formData,
+          step,
+          timestamp: new Date().toLocaleTimeString(),
+        })
       );
       setBorradorSincronizado(true);
     } catch {
@@ -256,6 +304,12 @@ export function FormView({
               {createdSolicitud.puntajeVulnerabilidad}
               <span className="text-base font-normal text-stone-400">/100</span>
             </div>
+            {infoApiDane && (
+              <div className="text-[11px] text-emerald-800 mt-1.5 font-medium">
+                ✓ Municipio validado por API DANE ({infoApiDane.codigoDaneMunicipio} ·{" "}
+                {infoApiDane.municipio} · {infoApiDane.distanciaCampusApartadoKm} km)
+              </div>
+            )}
             <div className="text-[10px] font-mono text-stone-400 mt-1">
               Hash Auditoría:{" "}
               {createdSolicitud.historialAuditoria[0]?.hashActual}
@@ -296,7 +350,8 @@ export function FormView({
               Formulario de Postulación
             </h2>
             <p className="text-sm text-stone-500 mt-0.5">
-              Construcción paso a paso (Patrón Builder) · Próximo radicado:{" "}
+              Construcción paso a paso (Patrón Builder + SOLID + API Externa) ·
+              Próximo radicado:{" "}
               <span className="font-mono font-semibold text-[#165C58]">
                 {siguienteId}
               </span>
@@ -382,12 +437,6 @@ export function FormView({
                     placeholder: "nombre@uniremington.edu.co",
                     span: 2,
                   },
-                  {
-                    id: "municipio",
-                    label: "Municipio de residencia (Urabá)",
-                    placeholder: "Ej. Apartadó, Turbo, Carepa, Chigorodó",
-                    span: 2,
-                  },
                 ].map((f) => (
                   <div
                     key={f.id}
@@ -414,7 +463,119 @@ export function FormView({
                     />
                   </div>
                 ))}
+
+                {/* Selector de Municipio conectado a la API Externa (Datos Abiertos Colombia - DANE DIVIPOLA) */}
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-medium text-stone-600">
+                      Municipio de residencia (Urabá)
+                    </label>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select
+                      value={formData.municipio}
+                      onChange={(e) => {
+                        const nuevoMun = e.target.value;
+                        setFormData((p: typeof formData) => ({
+                          ...p,
+                          municipio: nuevoMun,
+                        }));
+                        consultarApiExternaMunicipio(nuevoMun, true);
+                      }}
+                      className="flex-1 border border-stone-200 rounded px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#165C58]/20 focus:border-[#165C58] bg-white text-stone-700"
+                    >
+                      {servicioApiExternaMunicipios
+                        .listarMunicipiosUraba()
+                        .map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        consultarApiExternaMunicipio(formData.municipio, true)
+                      }
+                      disabled={cargandoApi}
+                      className="px-3.5 py-2.5 rounded text-xs font-semibold bg-[#0D3868] text-white hover:bg-[#092B52] transition-colors shrink-0 cursor-pointer"
+                    >
+                      {cargandoApi
+                        ? "Consultando API..."
+                        : "🌐 Consultar API DANE (HTTP GET)"}
+                    </button>
+                  </div>
+                </div>
               </div>
+
+              {/* Tarjeta de respuesta de la API Externa (Fase III) */}
+              {infoApiDane && (
+                <div className="rounded-lg border border-blue-200/90 bg-blue-50/40 p-4 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                    <div className="font-semibold text-[#0D3868] flex items-center gap-1.5">
+                      <span>🌐</span>
+                      <span>
+                        Respuesta API Externa: Datos Abiertos de Colombia (DANE
+                        DIVIPOLA)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMostrarJsonApi((v) => !v)}
+                      className="text-[11px] font-mono text-[#0D3868] hover:underline cursor-pointer"
+                    >
+                      {mostrarJsonApi ? "Ocultar JSON" : "Ver respuesta JSON"}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                    <div className="bg-white p-2 rounded border border-blue-100">
+                      <span className="text-stone-400 block">Código DANE:</span>
+                      <strong className="font-mono text-[#1A2928]">
+                        {infoApiDane.codigoDaneMunicipio}
+                      </strong>
+                    </div>
+                    <div className="bg-white p-2 rounded border border-blue-100">
+                      <span className="text-stone-400 block">
+                        Municipio / Depto:
+                      </span>
+                      <strong className="text-[#1A2928]">
+                        {infoApiDane.municipio} ({infoApiDane.departamento})
+                      </strong>
+                    </div>
+                    <div className="bg-white p-2 rounded border border-blue-100">
+                      <span className="text-stone-400 block">
+                        Distancia Campus:
+                      </span>
+                      <strong className="font-mono text-emerald-700">
+                        {infoApiDane.distanciaCampusApartadoKm} km (~
+                        {infoApiDane.tiempoEstimadoMinutos} min)
+                      </strong>
+                    </div>
+                    <div className="bg-white p-2 rounded border border-blue-100">
+                      <span className="text-stone-400 block">
+                        Clasificación SOLID:
+                      </span>
+                      <strong className="text-[#0D3868]">
+                        {infoApiDane.esZonaRuralPrioritaria
+                          ? "Rural Prioritario (OCP)"
+                          : "Eje Urbano Urabá"}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {mostrarJsonApi && (
+                    <div className="mt-3">
+                      <div className="text-[10px] font-mono text-stone-500 mb-1 truncate">
+                        GET {infoApiDane.fuenteApiUrl}
+                      </div>
+                      <pre className="bg-[#0F172A] text-emerald-300 p-3 rounded text-[11px] font-mono overflow-x-auto">
+                        {infoApiDane.jsonRaw}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -505,10 +666,11 @@ export function FormView({
                 <code>setVariablesSocioeconomicas</code>)
               </h3>
               <p className="text-xs text-stone-400">
-                Ponderación institucional vigente: Ingresos ({parametros.pesoIngresos}
-                %), Estrato ({parametros.pesoEstrato}%), Dependientes (
-                {parametros.pesoDependientes}%), Distancia ({parametros.pesoDistancia}
-                %). Umbral mínimo: <strong>{parametros.umbralPuntajeMinimo} pts</strong>.
+                Ponderación institucional vigente: Ingresos (
+                {parametros.pesoIngresos}%), Estrato ({parametros.pesoEstrato}
+                %), Dependientes ({parametros.pesoDependientes}%), Distancia (
+                {parametros.pesoDistancia}%). Umbral mínimo:{" "}
+                <strong>{parametros.umbralPuntajeMinimo} pts</strong>.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
@@ -572,9 +734,17 @@ export function FormView({
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-medium text-stone-600 mb-1.5 block">
-                    Distancia al campus Apartadó (km)
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-medium text-stone-600">
+                      Distancia al campus Apartadó (km)
+                    </label>
+                    {infoApiDane && (
+                      <span className="text-[11px] text-emerald-700 font-medium">
+                        ✓ Autocompletada desde API DANE ({infoApiDane.municipio}:{" "}
+                        {infoApiDane.distanciaCampusApartadoKm} km)
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     min="0"
@@ -596,7 +766,7 @@ export function FormView({
                 <div className="flex items-center justify-between gap-4 mb-3">
                   <div>
                     <div className="text-xs text-stone-500">
-                      Puntaje de vulnerabilidad auditable (RF2)
+                      Puntaje de vulnerabilidad auditable (RF2 · SOLID SRP/OCP)
                     </div>
                     <div className="text-2xl font-semibold text-[#165C58]">
                       {puntaje}
